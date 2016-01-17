@@ -1,0 +1,214 @@
+using System;
+using System.IO;
+using System.Collections.Generic;
+
+class Program
+{
+    static void Main()
+    {
+        Dictionary<int,List<int>> graph=new Dictionary<int,List<int>>();
+        StreamReader sr=new StreamReader("adj.txt");
+        string line = sr.ReadLine();
+        line = sr.ReadLine();
+        while(line!=null)
+        { 
+            string[] dataAsStrings = line.Split();
+            int actorID = int.Parse(dataAsStrings[0]);
+            List<int> temp=new List<int>();
+            for(int i=1; i<dataAsStrings.Length;++i)
+            {
+                temp.Add(int.Parse(dataAsStrings[i]));
+            }
+            graph.Add(actorID, temp);
+            line = sr.ReadLine();
+        }
+        sr.Close();
+        DFS(graph);
+        KeyValuePair<int,List<int>> KevinBacon=new KeyValuePair<int,List<int>>(357650,graph[357650]);
+        Dictionary<int,int> list5=BFS(graph, KevinBacon);
+        Console.WriteLine("Distance from Kevin Bacon  Number of Actors");
+        for (int i = -1; i < -1 + list5.Count; ++i)
+        {
+            Console.WriteLine(i + "                          " + list5[i]);
+        }
+        Console.WriteLine("Maximum distance from Bacon is " + (-1 + (list5.Count - 1)));
+        double meanBacon= ComputeMean(list5);
+        Console.WriteLine("The mean of the distances is " + meanBacon);
+        List<int> distOver0 = new List<int>();
+        for (int i = 1; i < (-1 + list5.Count); ++i)
+        {
+            for (int j = 0; j < list5[i]; ++j)
+            {
+                distOver0.Add(i);
+            }
+        }
+        distOver0.Sort();
+        double fractionReachBacon = PercentReach(list5);
+        Console.WriteLine("The percent of actors KB can reach is " + fractionReachBacon);
+        int quartile1 = distOver0[(distOver0.Count - 1) / 4];
+        int quartile2 = distOver0[(distOver0.Count - 1) / 2];
+        int quartile3 = distOver0[(3 * (distOver0.Count - 1)) / 4];
+        Console.WriteLine("The first quartile is " + quartile1);
+        Console.WriteLine("The second quartile is " + quartile2);
+        Console.WriteLine("The third quartile is " + quartile3);
+        double numBetterThanBacon = 0;
+        for(int i=0;i<100;++i)
+        {
+            Random rng = new Random();
+            int randActorID = rng.Next(graph.Count);
+            while(randActorID==357650)
+            {
+                randActorID = rng.Next(graph.Count);
+            }
+            KeyValuePair<int,List<int>> randActor=new KeyValuePair<int,List<int>>(randActorID,graph[randActorID]);
+            Dictionary<int,int> rand=BFS(graph,randActor);
+            double meanRand = ComputeMean(rand);
+            double fractionReachRand = PercentReach(rand);
+            if(meanRand<meanBacon&&fractionReachRand>fractionReachBacon)
+            {
+                numBetterThanBacon += 1;
+            }
+        }
+        Console.WriteLine("The percent of actors more connected than Kevin Bacon is " + numBetterThanBacon / 517899.0);
+     }
+
+    static void DFS (Dictionary<int, List<int>> G)
+    {
+        int connectedCompCount = 0;
+        List<int> componentSizes = new List<int>();
+        bool[] visited=new bool[517900];
+        foreach(KeyValuePair<int,List<int>> u in G)
+        {
+            if(!visited[u.Key])
+            {
+                int compSize=DFSVisit(G, u, visited[u.Key],visited);
+                componentSizes.Add(compSize);
+                connectedCompCount += 1;
+            }
+        }
+        Console.WriteLine("The number of connected components is "+connectedCompCount);
+        componentSizes.Sort();
+        Console.WriteLine("Minimum component size = " + componentSizes[0]);
+        Console.WriteLine("Maximum component size = " + componentSizes[componentSizes.Count - 1]);
+        double mean = 0;
+        foreach(int i in componentSizes)
+        {
+            mean = mean + i;
+        }
+        mean = mean / componentSizes.Count;
+        Console.WriteLine("The mean component size is " + mean);
+        Console.WriteLine("The first quartile is " + componentSizes[(componentSizes.Count - 1) / 4]);
+        Console.WriteLine("The second quartile is " + componentSizes[(componentSizes.Count - 1) / 2]);
+        Console.WriteLine("The third quartile is " + componentSizes[(3*(componentSizes.Count - 1))/4]);
+        //Tally the number of components with each size
+        Dictionary<int, int> list4 = new Dictionary<int, int>();
+        for (int i = 0; i < componentSizes.Count; ++i)
+        {
+            int currSize = componentSizes[i];
+            if (!list4.ContainsKey(currSize))
+            {
+                list4.Add(currSize, 1);
+            }
+            else
+            {
+                list4[currSize] += 1;
+            }
+        }
+        Console.WriteLine("Component Size  Number of Components with Size");
+        foreach(KeyValuePair<int,int> kvp in list4)
+        {
+            Console.WriteLine(kvp.Key + "              " + kvp.Value);
+        }
+
+ }
+
+    static int DFSVisit(Dictionary<int,List<int>> G, KeyValuePair<int,List<int>> u,bool visitedYet, bool[] visited)
+    {
+        Stack<KeyValuePair<int,List<int>>> verticesToVisit=new Stack<KeyValuePair<int,List<int>>>();
+        int compSize = 1;
+        verticesToVisit.Push(u);
+        visited[u.Key]=true;
+        while(verticesToVisit.Count!=0)
+        {
+            u = verticesToVisit.Pop();
+            foreach(int w in u.Value)
+            {
+                if(!visited[w])
+                {
+                    verticesToVisit.Push(u);
+                    verticesToVisit.Push(new KeyValuePair<int, List<int>>(w,G[w]));
+                    visited[w] = true;
+                    compSize += 1;
+                    break;
+                }
+            }
+        }
+        return compSize;
+    }
+
+    static Dictionary<int,int> BFS(Dictionary<int,List<int>> G,KeyValuePair<int,List<int>> s)
+    {
+        bool[] visited = new bool[517900];
+        int[] dist = new int[517900];
+        for (int i = 0; i < dist.Length;++i)
+        {
+            dist[i] = -1;
+        }
+        visited[s.Key] = true;
+        dist[s.Key] = 0;
+        Queue<KeyValuePair<int, List<int>>> Q = new Queue<KeyValuePair<int, List<int>>>();   
+        Q.Enqueue(s);
+        while(Q.Count>0)
+        {
+            KeyValuePair<int, List<int>> u = Q.Dequeue();
+            foreach(int i in u.Value)
+            {
+                KeyValuePair<int, List<int>> v = new KeyValuePair<int, List<int>>(i, G[i]);
+                if(visited[v.Key]==false)
+                {
+                    visited[v.Key] = true;
+                    dist[v.Key] = dist[u.Key] + 1;
+                    Q.Enqueue(v);
+                }
+            }
+        }
+        Dictionary<int, int> list5 = new Dictionary<int, int>();
+        for (int i = 0; i < dist.Length; ++i)
+        {
+            int currDist = dist[i];
+            if (!list5.ContainsKey(currDist))
+            {
+                list5.Add(currDist, 1);
+            }
+            else
+            {
+                list5[currDist] += 1;
+            }
+        }
+        return list5;
+    }
+
+    static double ComputeMean(Dictionary<int,int> list5)
+    {
+        double mean = 0;
+        int sum = 0;
+        for (int i = 1; i < (-1 + list5.Count); ++i)
+        {
+            mean = mean + list5[i] * i;
+            sum = sum + list5[i];
+        }
+        mean = mean / sum;
+        return mean;
+    }
+
+    static double PercentReach(Dictionary<int,int> list5)
+    {
+        int numReached = 0;
+        for (int i = 1; i < (-1 + list5.Count); ++i)
+        {
+            numReached = numReached + list5[i];
+        }
+        double percentReach = (numReached / 517899.0) * 100;
+        return percentReach;
+    }
+}
